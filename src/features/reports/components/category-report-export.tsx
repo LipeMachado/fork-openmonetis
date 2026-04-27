@@ -224,8 +224,8 @@ export function CategoryReportExport({
 			const doc = new jsPDF({ orientation: "landscape" });
 			const primaryColor = getPrimaryPdfColor();
 			const [smallLogoDataUrl, textLogoDataUrl] = await Promise.all([
-				loadExportLogoDataUrl("/images/logo_small.png"),
-				loadExportLogoDataUrl("/images/logo_text.png"),
+				loadExportLogoDataUrl("/images/logo_small.svg"),
+				loadExportLogoDataUrl("/images/logo_text.svg"),
 			]);
 			let brandingEndX = 14;
 
