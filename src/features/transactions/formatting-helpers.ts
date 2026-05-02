@@ -12,23 +12,6 @@ import { capitalize } from "@/shared/utils/string";
 export { currencyFormatter };
 
 /**
- * Date formatter for pt-BR locale (dd/mm/yyyy)
- */
-export const dateFormatter = new Intl.DateTimeFormat("pt-BR", {
-	day: "2-digit",
-	month: "2-digit",
-	year: "numeric",
-});
-
-/**
- * Month formatter for pt-BR locale (Month Year)
- */
-export const monthFormatter = new Intl.DateTimeFormat("pt-BR", {
-	month: "long",
-	year: "numeric",
-});
-
-/**
  * Formats a date string to localized format
  * @param value - ISO date string or null
  * @returns Formatted date string or "—"
