@@ -5,6 +5,13 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.5.1] - 2026-05-04
+
+Versão de correção pontual focada na exibição do indicador de anexo nas tabelas de lançamentos da fatura do cartão. Em `/cards/[cardId]/invoice`, lançamentos com anexos não mostravam o ícone porque o fetcher dedicado da fatura não calculava o flag `hasAttachments`. A primeira tentativa de adicionar o EXISTS via `extras` na query relacional gerou SQL inválido (Drizzle re-aliasava `transactionAttachments.transactionId` para o alias da tabela externa). A correção definitiva troca o fetcher pela função compartilhada `fetchTransactionsWithRelations` de `features/transactions`, que já implementa o EXISTS corretamente via `select`.
+
+### Corrigido
+- Ícone de anexo voltou a aparecer na tabela de lançamentos da fatura do cartão (`/cards/[cardId]/invoice`). `fetchCardTransactions` em `features/invoices/queries.ts` agora delega para `fetchTransactionsWithRelations`, garantindo que o flag `hasAttachments` seja preenchido com a mesma EXISTS subquery usada no restante do app.
+
 ## [2.5.0] - 2026-05-01
 
 Esta versão melhora o fechamento de faturas, a correção de lançamentos já registrados e a conferência de saldos contra o extrato do banco. O novo **ajuste de fatura** fecha a conta entre o total calculado pelo sistema e o valor real cobrado pelo banco, sem exigir que o usuário reabra lançamentos individuais. A mesma ideia foi estendida para **contas correntes**: na página do extrato, ao lado de "Saldo ao final do período", o usuário informa o saldo real e o sistema cria (ou atualiza) um lançamento de ajuste no período visualizado. Também entra o fluxo de **reembolso** para despesas à vista: pelo menu de ações do lançamento, o usuário informa a data do reembolso e o sistema cria uma receita espelhada no extrato ou na fatura correta. O widget de boletos do dashboard ganhou paridade com o widget de faturas — confirmação de pagamento agora pede conta de origem e data antes de quitar o boleto. Por fim, o **limite do cartão** passou a ser obrigatório e o sistema bloqueia despesas em cartão que ultrapassem o limite disponível, retornando uma mensagem com o valor exato disponível. As operações mantêm rastro no lançamento gerado e respeitam a proteção de faturas já pagas.
