@@ -11,7 +11,9 @@ import {
 	FieldLabel,
 	FieldSeparator,
 } from "@/shared/components/ui/field";
+import { Checkbox } from "@/shared/components/ui/checkbox";
 import { Input } from "@/shared/components/ui/input";
+import { Label } from "@/shared/components/ui/label";
 import { authClient, googleSignInAvailable } from "@/shared/lib/auth/client";
 import { cn } from "@/shared/utils/ui";
 import { AuthCardShell } from "./auth-card-shell";
@@ -30,6 +32,7 @@ export function LoginForm({ className, ...props }: DivProps) {
 
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
+	const [rememberMe, setRememberMe] = useState(false);
 
 	const [error, setError] = useState("");
 	const [loadingEmail, setLoadingEmail] = useState(false);
@@ -52,7 +55,7 @@ export function LoginForm({ className, ...props }: DivProps) {
 				email,
 				password,
 				callbackURL: "/dashboard",
-				rememberMe: false,
+				rememberMe,
 			},
 			{
 				onRequest: () => {
@@ -176,6 +179,23 @@ export function LoginForm({ className, ...props }: DivProps) {
 								onChange={(e) => setPassword(e.target.value)}
 								aria-invalid={!!error}
 							/>
+						</Field>
+
+						<Field>
+							<div className="flex items-center gap-2">
+								<Checkbox
+									id="remember-me"
+									checked={rememberMe}
+									onCheckedChange={(checked) => setRememberMe(checked === true)}
+									disabled={loadingEmail || loadingGoogle || loadingPasskey}
+								/>
+								<Label
+									htmlFor="remember-me"
+									className="cursor-pointer text-sm font-normal leading-tight"
+								>
+									Lembrar a senha
+								</Label>
+							</div>
 						</Field>
 
 						<Field>
