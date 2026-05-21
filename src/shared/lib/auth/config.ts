@@ -1,7 +1,8 @@
 import { passkey } from "@better-auth/passkey";
-import { betterAuth } from "better-auth";
+import { APIError, betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import type { GoogleProfile } from "better-auth/social-providers";
+import { isSignupDisabled } from "@/shared/lib/auth/signup";
 import { seedDefaultCategoriesForUser } from "@/shared/lib/categories/defaults";
 import { db, schema } from "@/shared/lib/db";
 import { ensureDefaultPayerForUser } from "@/shared/lib/payers/defaults";
@@ -122,6 +123,13 @@ export const auth = betterAuth({
 	databaseHooks: {
 		user: {
 			create: {
+				before: async () => {
+					if (!isSignupDisabled()) return;
+
+					throw new APIError("FORBIDDEN", {
+						message: "Novos cadastros estão desativados.",
+					});
+				},
 				/**
 				 * Após criar novo usuário, inicializa:
 				 * 1. Categorias padrão (Receitas/Despesas)
