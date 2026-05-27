@@ -8,7 +8,7 @@
 
 > **⚠️ Não há versão online hospedada.** Você precisa clonar o repositório e rodar localmente ou no seu próprio servidor.
 
-[![Version](https://img.shields.io/badge/version-2.5.5-blue?style=flat-square)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-2.6.4-blue?style=flat-square)](CHANGELOG.md)
 [![Next.js](https://img.shields.io/badge/Next.js-black?style=flat-square&logo=next.js)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-blue?style=flat-square&logo=postgresql)](https://www.postgresql.org/)
@@ -39,6 +39,7 @@
 - [Arquitetura](#-arquitetura)
 - [Contribuindo](#-contribuindo)
 - [Apoie o Projeto](#-apoie-o-projeto)
+- [Star History](#-star-history)
 - [Licença](#-licença)
 
 ---
@@ -61,7 +62,7 @@ A ideia é simples: ter um lugar onde consigo ver todas as minhas contas, cartõ
 
 ### Funcionalidades
 
-💰 **Contas e transações** — Contas bancárias, cartões, dinheiro. Receitas, despesas e transferências. Categorização, filtros combináveis, extratos detalhados e importação de extratos OFX e XLS/XLSX com detecção automática de categoria.
+💰 **Contas e transações** — Contas bancárias, cartões, dinheiro. Receitas, despesas e transferências. Categorização, filtros combináveis com intervalo de datas, extratos detalhados e importação de extratos OFX e XLS/XLSX com detecção automática de categoria.
 
 📊 **Dashboard e relatórios** — Widgets interativos de métricas, gráficos de evolução, comparativos por categoria, tendências, uso de cartões, top estabelecimentos. Exportação em PDF e Excel.
 
@@ -127,10 +128,11 @@ Só quer rodar o OpenMonetis. **Não precisa clonar o repositório nem instalar 
 # 1. Baixe o compose
 curl -fsSL https://raw.githubusercontent.com/felipegcoutinho/openmonetis/main/docker-compose.yml -o docker-compose.yml
 
-# 2. Crie um .en na mesma pasta.
+# 2. Crie um .env na mesma pasta.
 # .env mínimo recomendado para produção
 BETTER_AUTH_SECRET=gere-um-valor-com-openssl-rand-base64-32
 BETTER_AUTH_URL=http://seu-dominio.com
+DISABLE_SIGNUP=false # opcional: true bloqueia novos cadastros
 
 # 3. Suba tudo
 docker compose up -d
@@ -443,6 +445,9 @@ POSTGRES_USER=openmonetis
 POSTGRES_PASSWORD=openmonetis_dev_password
 POSTGRES_DB=openmonetis_db
 
+# Autenticação
+DISABLE_SIGNUP=false # true bloqueia novos cadastros
+
 # S3 Server (opcional, necessario para anexos)
 S3_ENDPOINT=
 S3_REGION=
@@ -572,6 +577,18 @@ Se o **OpenMonetis** está sendo útil, considere se tornar um sponsor!
 [![Sponsor no GitHub](https://img.shields.io/badge/Sponsor_no_GitHub-❤️-ea4aaa?style=for-the-badge&logo=github-sponsors)](https://github.com/sponsors/felipegcoutinho)
 
 Outras formas de contribuir: ⭐ estrela no repo, reportar bugs, melhorar docs, submeter PRs.
+
+---
+
+## ⭐ Star History
+
+<a href="https://www.star-history.com/?repos=felipegcoutinho%2Fopenmonetis&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=felipegcoutinho/openmonetis&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=felipegcoutinho/openmonetis&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=felipegcoutinho/openmonetis&type=date&legend=top-left" />
+ </picture>
+</a>
 
 ---
 

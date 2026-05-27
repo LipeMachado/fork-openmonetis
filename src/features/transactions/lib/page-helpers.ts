@@ -1,5 +1,15 @@
 import type { SQL } from "drizzle-orm";
-import { and, eq, ilike, inArray, isNotNull, or, sql } from "drizzle-orm";
+import {
+	and,
+	eq,
+	gte,
+	ilike,
+	inArray,
+	isNotNull,
+	lte,
+	or,
+	sql,
+} from "drizzle-orm";
 import {
 	cards,
 	type categories,
@@ -10,17 +20,27 @@ import {
 } from "@/db/schema";
 import type { SelectOption } from "@/features/transactions/components/types";
 import {
+	AMOUNT_MAX_PARAM,
+	AMOUNT_MIN_PARAM,
+	DATE_END_PARAM,
+	DATE_START_PARAM,
 	PAYMENT_METHODS,
 	SETTLED_FILTER_VALUES,
 	TRANSACTION_CONDITIONS,
 	TRANSACTION_TYPES,
 } from "@/features/transactions/lib/constants";
-import { ACCOUNT_AUTO_INVOICE_NOTE_PREFIX } from "@/shared/lib/accounts/constants";
+import {
+	ACCOUNT_AUTO_INVOICE_NOTE_PREFIX,
+	INITIAL_BALANCE_CONDITION,
+	INITIAL_BALANCE_NOTE,
+	INITIAL_BALANCE_PAYMENT_METHOD,
+	INITIAL_BALANCE_TRANSACTION_TYPE,
+} from "@/shared/lib/accounts/constants";
 import {
 	PAYER_ROLE_ADMIN,
 	PAYER_ROLE_THIRD_PARTY,
 } from "@/shared/lib/payers/constants";
-import { toDateOnlyString } from "@/shared/utils/date";
+import { parseLocalDateString, toDateOnlyString } from "@/shared/utils/date";
 import { slugify } from "@/shared/utils/string";
 
 type PayerRow = typeof payers.$inferSelect;
@@ -46,6 +66,10 @@ export type TransactionSearchFilters = {
 	settledFilter: string | null;
 	attachmentFilter: string | null;
 	dividedFilter: string | null;
+	amountMinFilter: number | null;
+	amountMaxFilter: number | null;
+	dateStartFilter: string | null;
+	dateEndFilter: string | null;
 };
 
 type BaseSluggedOption = {
@@ -135,6 +159,21 @@ export const getMultiParam = (
 	return list.filter((item): item is string => Boolean(item));
 };
 
+export const parsePositiveAmount = (value: string | null): number | null => {
+	if (!value) return null;
+	const normalized = Number.parseFloat(value.replace(",", "."));
+	if (!Number.isFinite(normalized) || normalized < 0) return null;
+	return Math.round(normalized * 100) / 100;
+};
+
+export const parseDateFilterParam = (value: string | null): string | null => {
+	if (!value) return null;
+	const normalized = value.trim();
+	if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return null;
+	const parsed = parseLocalDateString(normalized);
+	return Number.isNaN(parsed.getTime()) ? null : normalized;
+};
+
 export const extractTransactionSearchFilters = (
 	params: ResolvedSearchParams,
 ): TransactionSearchFilters => ({
@@ -148,6 +187,16 @@ export const extractTransactionSearchFilters = (
 	settledFilter: getSingleParam(params, "settled"),
 	attachmentFilter: getSingleParam(params, "hasAttachment"),
 	dividedFilter: getSingleParam(params, "isDivided"),
+	amountMinFilter: parsePositiveAmount(
+		getSingleParam(params, AMOUNT_MIN_PARAM),
+	),
+	amountMaxFilter: parsePositiveAmount(
+		getSingleParam(params, AMOUNT_MAX_PARAM),
+	),
+	dateStartFilter: parseDateFilterParam(
+		getSingleParam(params, DATE_START_PARAM),
+	),
+	dateEndFilter: parseDateFilterParam(getSingleParam(params, DATE_END_PARAM)),
 });
 
 export const resolveTransactionPagination = (
@@ -344,10 +393,29 @@ export const buildTransactionWhere = ({
 	accountId?: string;
 	payerId?: string;
 }): SQL[] => {
-	const where: SQL[] = [
-		eq(transactions.userId, userId),
-		eq(transactions.period, period),
-	];
+	const where: SQL[] = [eq(transactions.userId, userId)];
+
+	if (filters.dateStartFilter || filters.dateEndFilter) {
+		if (filters.dateStartFilter) {
+			where.push(
+				gte(
+					transactions.purchaseDate,
+					parseLocalDateString(filters.dateStartFilter),
+				),
+			);
+		}
+
+		if (filters.dateEndFilter) {
+			where.push(
+				lte(
+					transactions.purchaseDate,
+					parseLocalDateString(filters.dateEndFilter),
+				),
+			);
+		}
+	} else {
+		where.push(eq(transactions.period, period));
+	}
 
 	if (payerId) {
 		where.push(eq(transactions.payerId, payerId));
@@ -442,6 +510,18 @@ export const buildTransactionWhere = ({
 		where.push(eq(transactions.isDivided, true));
 	}
 
+	if (filters.amountMinFilter !== null) {
+		where.push(
+			gte(sql`abs(${transactions.amount})`, filters.amountMinFilter.toFixed(2)),
+		);
+	}
+
+	if (filters.amountMaxFilter !== null) {
+		where.push(
+			lte(sql`abs(${transactions.amount})`, filters.amountMaxFilter.toFixed(2)),
+		);
+	}
+
 	const searchPattern = buildSearchPattern(filters.searchFilter);
 	if (searchPattern) {
 		where.push(
@@ -512,8 +592,10 @@ export const mapTransactionsData = (rows: TransactionRowWithRelations[]) =>
 		hasAttachments: item.hasAttachments ?? false,
 		readonly:
 			Boolean(item.note?.startsWith(ACCOUNT_AUTO_INVOICE_NOTE_PREFIX)) ||
-			item.category?.name === "Saldo inicial" ||
-			item.category?.name === "Pagamentos",
+			(item.note === INITIAL_BALANCE_NOTE &&
+				item.transactionType === INITIAL_BALANCE_TRANSACTION_TYPE &&
+				item.condition === INITIAL_BALANCE_CONDITION &&
+				item.paymentMethod === INITIAL_BALANCE_PAYMENT_METHOD),
 	}));
 
 const sortByLabel = <T extends { label: string }>(items: T[]) =>

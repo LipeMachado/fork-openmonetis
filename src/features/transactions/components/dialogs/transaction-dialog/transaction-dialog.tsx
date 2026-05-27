@@ -1,6 +1,6 @@
 "use client";
 import { RiArrowDropDownLine } from "@remixicon/react";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import {
 	createTransactionAction,
@@ -65,6 +65,7 @@ export function TransactionDialog({
 	estabelecimentos,
 	transaction,
 	defaultPeriod,
+	defaultAccountId,
 	defaultCardId,
 	defaultPaymentMethod,
 	defaultPurchaseDate,
@@ -88,6 +89,7 @@ export function TransactionDialog({
 
 	const [formState, setFormState] = useState<FormState>(() =>
 		buildTransactionInitialState(transaction, defaultPayerId, defaultPeriod, {
+			defaultAccountId,
 			defaultCardId,
 			defaultPaymentMethod,
 			defaultPurchaseDate,
@@ -102,6 +104,8 @@ export function TransactionDialog({
 	const [pendingFiles, setPendingFiles] = useState<File[]>([]);
 	const [pendingDetachIds, setPendingDetachIds] = useState<string[]>([]);
 	const [pendingUploadFiles, setPendingUploadFiles] = useState<File[]>([]);
+	const [extrasOpen, setExtrasOpen] = useState(false);
+	const scrollContainerRef = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
 		if (dialogOpen) {
@@ -110,6 +114,7 @@ export function TransactionDialog({
 				defaultPayerId,
 				defaultPeriod,
 				{
+					defaultAccountId,
 					defaultCardId,
 					defaultPaymentMethod,
 					defaultPurchaseDate,
@@ -142,12 +147,14 @@ export function TransactionDialog({
 			setPendingFiles([]);
 			setPendingDetachIds([]);
 			setPendingUploadFiles([]);
+			setExtrasOpen(initial.condition !== "À vista");
 		}
 	}, [
 		dialogOpen,
 		transaction,
 		defaultPayerId,
 		defaultPeriod,
+		defaultAccountId,
 		defaultCardId,
 		defaultPaymentMethod,
 		defaultPurchaseDate,
@@ -209,6 +216,22 @@ export function TransactionDialog({
 				...dependencies,
 			};
 		});
+	}
+
+	function handleExtrasOpenChange(nextOpen: boolean) {
+		setExtrasOpen(nextOpen);
+
+		if (nextOpen) {
+			requestAnimationFrame(() => {
+				const scrollContainer = scrollContainerRef.current;
+				if (!scrollContainer) return;
+
+				scrollContainer.scrollTo({
+					top: scrollContainer.scrollHeight,
+					behavior: "smooth",
+				});
+			});
+		}
 	}
 
 	const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
@@ -307,6 +330,12 @@ export function TransactionDialog({
 			installmentCount:
 				formState.condition === "Parcelado" && formState.installmentCount
 					? Number(formState.installmentCount)
+					: undefined,
+			startInstallment:
+				mode === "create" &&
+				formState.condition === "Parcelado" &&
+				formState.startInstallment
+					? Number(formState.startInstallment)
 					: undefined,
 			recurrenceCount:
 				formState.condition === "Recorrente" && formState.recurrenceCount
@@ -527,18 +556,21 @@ export function TransactionDialog({
 	return (
 		<Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
 			{trigger ? <DialogTrigger asChild>{trigger}</DialogTrigger> : null}
-			<DialogContent className="min-w-0 overflow-x-hidden">
+			<DialogContent className="flex max-h-[90vh] min-w-0 flex-col overflow-hidden p-4 sm:p-10">
 				<DialogHeader>
 					<DialogTitle>{title}</DialogTitle>
 					<DialogDescription>{description}</DialogDescription>
 				</DialogHeader>
 
 				<form
-					className="flex min-w-0 flex-col gap-0"
+					className="flex min-h-0 min-w-0 flex-1 flex-col gap-0"
 					onSubmit={handleSubmit}
 					noValidate
 				>
-					<div className="min-w-0 -mx-6 max-h-[90vh] overflow-x-hidden overflow-y-auto px-6 pb-1">
+					<div
+						ref={scrollContainerRef}
+						className="-mx-1 min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-1 pb-1"
+					>
 						{/* Detalhes */}
 						<div className="space-y-3">
 							<BasicFieldsSection
@@ -634,7 +666,8 @@ export function TransactionDialog({
 							</>
 						) : (
 							<Collapsible
-								defaultOpen={formState.condition !== "À vista"}
+								open={extrasOpen}
+								onOpenChange={handleExtrasOpenChange}
 								className="min-w-0"
 							>
 								<CollapsibleTrigger className="flex w-full items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer [&[data-state=open]>svg]:rotate-180 mt-4">
@@ -680,7 +713,7 @@ export function TransactionDialog({
 						<p className="mt-3 text-sm text-destructive">{errorMessage}</p>
 					) : null}
 
-					<DialogFooter className="mt-4">
+					<DialogFooter className="mt-4 shrink-0">
 						<Button
 							type="button"
 							variant="outline"

@@ -5,6 +5,125 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.6.4] - 2026-05-23
+
+Esta versão reúne o polimento final antes da próxima publicação: melhora o fluxo de antecipação de parcelas, deixa os dialogs de lançamentos mais seguros e consistentes, e incorpora as contribuições vindas dos PRs abertos para nomes de logos e ajustes no cadastro de transações.
+
+### Adicionado
+- Logos: adicionado um dicionário de nomes de exibição para logos, com busca normalizada sem acentos e fallback para o comportamento anterior quando não houver mapeamento específico (PR #69).
+- Lançamentos: o dialog de adicionar múltiplos lançamentos agora pede confirmação antes de descartar alterações não salvas ao fechar ou cancelar (PR #70).
+
+### Alterado
+- Lançamentos: o modal "Histórico de Antecipações" agora segue o padrão do modal de detalhes, com `Fechar` e `Desfazer Antecipação` no rodapé, contagem dentro do conteúdo e cards de antecipação reorganizados em blocos mais escaneáveis.
+- Lançamentos: a antecipação de parcelas agora só permite selecionar parcelas futuras ao período escolhido, evitando antecipar a parcela do próprio mês sem bloquear parcelas seguintes da mesma compra.
+- Lançamentos: ao criar uma antecipação, o cache do histórico da série agora é invalidado e o modal refaz a busca ao abrir.
+- Lançamentos: ao adicionar uma nova linha no dialog de múltiplos lançamentos, a data passa a seguir a última transação informada em vez de voltar para a data atual (PR #72).
+
+### Corrigido
+- Lançamentos: ajustado o espaçamento horizontal da área rolável do dialog de adicionar transação para preservar o alinhamento dos campos e botões (PR #71).
+
+## [2.6.3] - 2026-05-22
+
+Esta versão concentra os ajustes feitos depois da `2.6.2` em um único ciclo público. O foco está em dar mais precisão aos filtros de lançamentos por período real de compra e em polir a análise de parcelas para priorizar parcelamentos mais próximos da quitação sem causar saltos visuais nos cards.
+
+### Adicionado
+- Lançamentos: o drawer de filtros agora permite informar data inicial e data final para filtrar a tabela por `data_compra`.
+
+### Alterado
+- Lançamentos: quando um intervalo de datas está ativo, a consulta server-side deixa de limitar os dados a um único mês e usa o intervalo real de compra, mantendo paginação e exportação alinhadas ao que aparece na tabela.
+- Relatórios: os cards de `/reports/installment-analysis` agora são ordenados pelo percentual pago em ordem decrescente, mantendo a data da compra como critério de desempate.
+- Relatórios: em `/reports/installment-analysis`, o contador de parcelas selecionadas agora aparece discretamente no botão "detalhes", sem criar uma área extra no corpo do card.
+
+### Corrigido
+- Relatórios: selecionar parcelas em um card de `/reports/installment-analysis` não força mais os outros cards da mesma linha a reservarem espaço vazio para o resumo de seleção.
+
+## [2.6.2] - 2026-05-21
+
+Esta versão corrige o build da imagem Docker depois da atualização para `pnpm@11.1.3`. A etapa de dependências dentro do Docker não recebia a configuração do workspace, então o install congelado falhava ao comparar os `overrides` e as políticas de build com o lockfile.
+
+### Corrigido
+- Docker: o `Dockerfile` agora usa `pnpm@11.1.3` em todos os estágios e copia `pnpm-workspace.yaml` antes do `pnpm install --frozen-lockfile`, garantindo que `overrides` e `allowBuilds` sejam aplicados também no build da imagem.
+
+## [2.6.1] - 2026-05-21
+
+Esta versão corrige o pipeline de publicação após o salto para a `2.6.0`. O build do GitHub Actions falhava antes mesmo de instalar as dependências porque o workflow ainda fixava uma versão antiga do `pnpm`, enquanto o projeto já declarava `pnpm@11.1.3` no `packageManager`.
+
+### Corrigido
+- CI: o workflow de build deixou de fixar uma versão diferente do `pnpm`, usando a versão declarada em `packageManager` para evitar conflito no `pnpm/action-setup`.
+- CI: a política de builds do `pnpm` foi migrada para `allowBuilds`, permitindo explicitamente os scripts necessários de `core-js`, `esbuild`, `sharp` e `unrs-resolver` durante o install no GitHub Actions.
+
+## [2.6.0] - 2026-05-21
+
+Esta versão implementa melhorias pensadas para o uso real do dia a dia. O OpenMonetis passa a lidar melhor com parcelamentos que já começaram, recupera atalhos importantes no extrato, deixa a revisão de importações mais precisa e dá mais controle para quem mantém uma instância self-hosted. Também entram correções de consistência no dashboard, em cartões, no tratamento da categoria `Pagamentos` e nas datas vindas de planilhas.
+
+### Adicionado
+- Autenticação: nova variável `DISABLE_SIGNUP=true` para bloquear novos cadastros. Quando ativa, a tela de cadastro deixa de aparecer na navegação, `/signup` redireciona para login/dashboard e a API de signup responde `403`.
+- Lançamentos: compras parceladas agora podem começar em uma parcela intermediária, como `5 de 10`. O sistema gera apenas as parcelas restantes e preserva o cálculo do valor unitário com base no total original.
+- Logos: adicionado o logo da Bipa à biblioteca local de marcas.
+- Relatórios: a análise de parcelas agora separa parcelas acompanhadas daquelas que ficaram fora do acompanhamento quando o parcelamento começa no meio da série.
+
+### Alterado
+- Contas: a página de extrato em `/accounts/[accountId]` voltou a exibir os botões "Nova Receita" e "Nova Despesa", alinhando o fluxo com as demais telas de lançamentos.
+- Cartões: os cards de `/cards` agora mostram o valor da fatura do mês atual junto dos indicadores de limite. O limite utilizado passa a considerar faturas em aberto, não apenas o status interno do lançamento.
+- Lançamentos: ao criar um lançamento a partir do extrato de uma conta, o diálogo já abre com essa conta selecionada como destino padrão.
+- Importação: os controles globais da revisão de extrato foram realinhados à esquerda, com espaçamento mais compacto e larguras mais consistentes.
+
+### Corrigido
+- Dashboard: o widget "Status de Pagamento" voltou a mostrar corretamente os valores em "A Pagar", somando despesas pelo valor absoluto e mantendo reembolsos como abatimento.
+- Importação: datas vindas de planilhas agora preservam o dia informado no Excel, evitando que `20/05/2026` apareça como `19/05/2026` em fusos como `America/Sao_Paulo`.
+- Importação: o seletor de categoria por linha agora mostra apenas categorias compatíveis com o tipo detectado do lançamento, separando receitas e despesas durante a revisão do extrato.
+- Importação: cada linha da revisão de extrato agora permite escolher uma pessoa específica, enquanto o campo global continua servindo como atalho para aplicar a pessoa nos lançamentos selecionados.
+- Lançamentos: despesas comuns na categoria `Pagamentos` voltaram a poder ser editadas, removidas, copiadas e importadas. A proteção continua valendo apenas para pagamentos automáticos de fatura com nota técnica `AUTO_FATURA:`.
+
+### Dependências
+- Stack core: `pnpm` 10.33.0 → 11.1.3.
+- Auth: `better-auth` e `@better-auth/passkey` 1.6.10 → 1.6.11.
+- AI SDKs: `@ai-sdk/anthropic` 3.0.76 → 3.0.78, `@ai-sdk/google` 3.0.71 → 3.0.75, `@ai-sdk/openai` 3.0.63 → 3.0.64 e `ai` 6.0.177 → 6.0.185.
+- AWS: `@aws-sdk/client-s3` e `@aws-sdk/s3-request-presigner` 3.1045.0 → 3.1050.0.
+- UI e dados: `@tanstack/react-query` 5.100.9 → 5.100.11, `date-fns` 4.1.0 → 4.2.1, `jspdf-autotable` 5.0.7 → 5.0.8, `pg` 8.20.0 → 8.21.0 e `react-day-picker` 10.0.0 → 10.0.1.
+- Dev tooling: `@types/node` 25.6.2 → 25.9.1, `@types/react` 19.2.14 → 19.2.15, `knip` 6.12.2 → 6.14.1, `tsx` 4.21.0 → 4.22.3 e novo `babel-plugin-react-compiler` 1.0.0.
+
+## [2.5.7] - 2026-05-14
+
+Esta versão faz um polimento visual no relatório de análise de parcelas, deixando o estabelecimento como referência principal do card e mantendo o cartão visível de forma mais discreta no contexto da compra.
+
+### Alterado
+- Relatórios: em `/reports/installment-analysis`, os cards de parcelas passam a usar o logo do estabelecimento como avatar principal; o logo do cartão agora aparece menor ao lado do nome do cartão, tanto no card quanto no modal de detalhes.
+- Relatórios: a página de análise de parcelas pré-carrega os mapeamentos de logos de estabelecimentos para evitar troca visual após o primeiro render.
+- Lançamentos: o campo de anexos no modal agora aceita arquivos colados com `Ctrl+V`, mantendo o botão para buscar arquivos normalmente.
+- Lançamentos: o modal agora usa uma única área interna de rolagem, com cabeçalho e rodapé estáveis, reduzindo travadas ao rolar e ao abrir "Condições, anotações e anexos".
+- Anotações: tarefas agora podem ser editadas inline no modal "Atualizar anotação"; clicar no texto abre o input e o botão de remover vira botão de salvar naquela linha.
+
+### Corrigido
+- Relatórios: o join com cartões na análise de parcelas agora também valida `cards.userId`, mantendo o filtro de ownership explícito na consulta.
+
+## [2.5.6] - 2026-05-07
+
+Esta versão entrega um conjunto de melhorias em torno do fluxo de lançamentos: filtros mais úteis, divisão por porcentagem, indicador de orçamento dentro do modal e correção de um bug em totais por pessoa que considerava contas excluídas do saldo. Também inclui ajustes de robustez no display da calculadora (sem mais overflow do modal com valores longos) e o fix do cache de RSC nos filtros multi-seleção.
+
+### Adicionado
+- Lançamentos: filtro por faixa de valor (mín/máx) com debounce e persistência via query string (`amountMin`/`amountMax`).
+- Lançamentos: botão "Limpar" discreto ao lado do botão "Filtros", visível apenas quando há filtros ativos.
+- Modal de lançamento: toggle compacto R$/% no card "Dividir lançamento", permitindo distribuir o valor por porcentagem entre as pessoas. Cada input em modo % exibe o valor convertido em R$ logo abaixo, no mesmo padrão visual do `InlinePeriodPicker`.
+- Modal de lançamento: indicador de orçamento ao lado do nome da categoria selecionada, mostrando `R$ gasto de R$ orçado (%)` com cores semânticas (verde / âmbar / vermelho) conforme o consumo. Suprimido quando o input divide a linha com o tipo de transação (caso pré-lançamentos). Implementado via `getCategoryBudgetSummaryAction` e `fetchCategoryBudgetSummary` em `features/budgets`.
+
+### Alterado
+- Calculadora: display com tamanho de fonte adaptativo (de `text-3xl` a `text-sm`) conforme o comprimento da expressão, mais `truncate` funcional via `min-w-0` nos containers flex. Resolve o overflow do modal com valores muito longos (ex: `9.999.999.999 × 9.999.999.999`).
+
+### Corrigido
+- Pessoas: "Totais do mês" em `/payers/[id]` deixa de somar lançamentos vinculados a contas marcadas como `excludeFromBalance` (ex: "Ajuste de saldo"). Adicionado `excludeTransactionsFromExcludedAccounts()` em 6 queries de `src/shared/lib/payers/details.ts`.
+- Orçamentos: `fetchBudgetsForUser` e `fetchCategoryBudgetSummary` agora respeitam o filtro de contas excluídas do saldo, alinhando o gasto exibido na tela de Orçamentos com o badge de orçamento dentro do modal de lançamento.
+- Lançamentos: tabela de resultados agora reflete corretamente a remoção de um valor em filtros multi-seleção (Pessoa, Conta/Cartão, Categoria, Condição, Forma de Pagamento). Adicionado `router.refresh()` em `handleMultiFilterChange` para invalidar o cache de segmento do router (issue #54).
+
+### Dependências
+- Stack core: `next` 16.2.4 → 16.2.6, `react`/`react-dom` 19.2.5 → 19.2.6.
+- UI: `react-day-picker` 9 → 10 (major), `tailwindcss` / `@tailwindcss/postcss` 4.2.4 → 4.3.0, `tailwind-merge` 3.5.0 → 3.6.0.
+- Auth: `better-auth` 1.6.9 → 1.6.10 e `@better-auth/passkey` 1.6.9 → 1.6.10.
+- AI SDKs: `@ai-sdk/anthropic` 3.0.74 → 3.0.76, `@ai-sdk/google` 3.0.67 → 3.0.71, `@ai-sdk/openai` 3.0.60 → 3.0.63, `ai` 6.0.175 → 6.0.177.
+- AWS: `@aws-sdk/client-s3` e `@aws-sdk/s3-request-presigner` 3.1042.0 → 3.1045.0.
+- E-mail: `resend` 6.12.2 → 6.12.3.
+- Dev tooling: `@biomejs/biome` 2.4.14 → 2.4.15, `knip` 6.11.0 → 6.12.2, `@types/node` 25.6.0 → 25.6.2.
+
 ## [2.5.5] - 2026-05-06
 
 Esta versão melhora a navegação por históricos e lançamentos. O changelog ganhou uma linha do tempo mais leve, colapsável e fácil de escanear; os filtros de lançamentos passam a aceitar múltiplas pessoas, categorias, formas de pagamento, condições e contas/cartões na mesma busca; e os diálogos adotam as animações compartilhadas do design system. Também há pequenos polimentos de texto e layout para deixar a interface mais consistente.
