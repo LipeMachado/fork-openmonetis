@@ -56,6 +56,7 @@ export async function createTransactionAction(
 		const ownershipError = await validateAllOwnership(user.id, {
 			payerId: data.payerId,
 			secondaryPayerId: data.secondaryPayerId,
+			splitPayerIds: data.splitShares?.map((share) => share.payerId),
 			categoryId: data.categoryId,
 			accountId: data.accountId,
 			cardId: data.cardId,
@@ -84,6 +85,7 @@ export async function createTransactionAction(
 			payerId: data.payerId ?? null,
 			isSplit: data.isSplit ?? false,
 			secondaryPayerId: data.secondaryPayerId,
+			splitShares: data.splitShares,
 			primarySplitAmountCents: data.primarySplitAmount
 				? Math.round(data.primarySplitAmount * 100)
 				: undefined,
@@ -207,6 +209,7 @@ export async function updateTransactionAction(
 		const ownershipError = await validateAllOwnership(user.id, {
 			payerId: data.payerId,
 			secondaryPayerId: data.secondaryPayerId,
+			splitPayerIds: data.splitShares?.map((share) => share.payerId),
 			categoryId: data.categoryId,
 			accountId: data.accountId,
 			cardId: data.cardId,
@@ -477,6 +480,7 @@ export async function updateTransactionSplitPairAction(
 
 		const ownershipError = await validateAllOwnership(user.id, {
 			payerId: data.payerId,
+			splitPayerIds: data.splitShares?.map((share) => share.payerId),
 			categoryId: data.categoryId,
 			accountId: data.accountId,
 			cardId: data.cardId,
