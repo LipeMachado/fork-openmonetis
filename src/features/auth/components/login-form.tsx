@@ -12,7 +12,6 @@ import {
 	FieldLabel,
 	FieldSeparator,
 } from "@/shared/components/ui/field";
-import { Checkbox } from "@/shared/components/ui/checkbox";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
 import { authClient, googleSignInAvailable } from "@/shared/lib/auth/client";
