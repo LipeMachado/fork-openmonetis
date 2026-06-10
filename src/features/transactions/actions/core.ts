@@ -31,19 +31,6 @@ import { addMonthsToPeriod, MONTH_NAMES } from "@/shared/utils/period";
 // Authorization Validation Functions
 // ============================================================================
 
-export async function validatePayerOwnership(
-	userId: string,
-	payerId: string | null | undefined,
-): Promise<boolean> {
-	if (!payerId) return true;
-
-	const pagador = await db.query.payers.findFirst({
-		where: and(eq(payers.id, payerId), eq(payers.userId, userId)),
-	});
-
-	return !!pagador;
-}
-
 const normalizeIds = (ids: Array<string | null | undefined>) => [
 	...new Set(ids.filter((id): id is string => Boolean(id))),
 ];
@@ -155,14 +142,20 @@ export async function validateAllOwnership(
 	fields: {
 		payerId?: string | null;
 		secondaryPayerId?: string | null;
+		splitPayerIds?: Array<string | null | undefined>;
 		categoryId?: string | null;
 		accountId?: string | null;
 		cardId?: string | null;
 	},
 ): Promise<string | null> {
+	const payerIds = [
+		fields.payerId,
+		fields.secondaryPayerId,
+		...(fields.splitPayerIds ?? []),
+	];
 	const [ownedPayerIds, ownedCategoryIds, ownedAccountIds, ownedCardIds] =
 		await Promise.all([
-			fetchOwnedPayerIds(userId, [fields.payerId, fields.secondaryPayerId]),
+			fetchOwnedPayerIds(userId, payerIds),
 			fetchOwnedCategoryIds(userId, [fields.categoryId]),
 			fetchOwnedAccountIds(userId, [fields.accountId]),
 			fetchOwnedCardIds(userId, [fields.cardId]),
@@ -171,6 +164,7 @@ export async function validateAllOwnership(
 	const checks = [
 		!fields.payerId || ownedPayerIds.has(fields.payerId),
 		!fields.secondaryPayerId || ownedPayerIds.has(fields.secondaryPayerId),
+		(fields.splitPayerIds ?? []).every((id) => !id || ownedPayerIds.has(id)),
 		!fields.categoryId || ownedCategoryIds.has(fields.categoryId),
 		!fields.accountId || ownedAccountIds.has(fields.accountId),
 		!fields.cardId || ownedCardIds.has(fields.cardId),
@@ -178,7 +172,8 @@ export async function validateAllOwnership(
 
 	const errors = [
 		"Pessoa não encontrada ou sem permissão.",
-		"Pessoa secundário não encontrado ou sem permissão.",
+		"Pessoa secundária não encontrada ou sem permissão.",
+		"Uma das pessoas selecionadas não foi encontrada ou está sem permissão.",
 		"Categoria não encontrada.",
 		"Conta não encontrada.",
 		"Cartão não encontrado.",
@@ -322,6 +317,14 @@ const baseFields = z.object({
 	}),
 	payerId: uuidSchema("Payer").nullable().optional(),
 	secondaryPayerId: uuidSchema("Payer secundário").optional(),
+	splitShares: z
+		.array(
+			z.object({
+				payerId: uuidSchema("Pessoa"),
+				amount: z.coerce.number().min(0.01, "Informe um valor maior que zero."),
+			}),
+		)
+		.optional(),
 	isSplit: z.boolean().optional().default(false),
 	primarySplitAmount: z.coerce.number().min(0).optional(),
 	secondarySplitAmount: z.coerce.number().min(0).optional(),
@@ -434,6 +437,8 @@ const refineLancamento = (
 	}
 
 	if (data.isSplit) {
+		const shares = resolveSplitShares(data);
+
 		if (!data.payerId) {
 			ctx.addIssue({
 				code: z.ZodIssueCode.custom,
@@ -442,30 +447,38 @@ const refineLancamento = (
 			});
 		}
 
-		if (!data.secondaryPayerId) {
+		if (shares.length < 2) {
 			ctx.addIssue({
 				code: z.ZodIssueCode.custom,
-				path: ["secondaryPayerId"],
-				message: "Selecione a pessoa secundário para dividir o lançamento.",
-			});
-		} else if (data.payerId && data.secondaryPayerId === data.payerId) {
-			ctx.addIssue({
-				code: z.ZodIssueCode.custom,
-				path: ["secondaryPayerId"],
-				message: "Escolha uma pessoa diferente para dividir o lançamento.",
+				path: ["splitShares"],
+				message: "Selecione pelo menos uma pessoa para dividir o lançamento.",
 			});
 		}
 
-		if (
-			data.primarySplitAmount !== undefined &&
-			data.secondarySplitAmount !== undefined
-		) {
-			const sum = data.primarySplitAmount + data.secondarySplitAmount;
+		const uniquePayerIds = new Set(shares.map((share) => share.payerId));
+		if (uniquePayerIds.size !== shares.length) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				path: ["splitShares"],
+				message: "Escolha pessoas diferentes para dividir o lançamento.",
+			});
+		}
+
+		if (shares.some((share) => share.amount <= 0)) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				path: ["splitShares"],
+				message: "Informe um valor maior que zero para cada pessoa.",
+			});
+		}
+
+		if (shares.length > 0) {
+			const sum = shares.reduce((total, share) => total + share.amount, 0);
 			const total = Math.abs(data.amount);
 			if (Math.abs(sum - total) > 0.01) {
 				ctx.addIssue({
 					code: z.ZodIssueCode.custom,
-					path: ["primarySplitAmount"],
+					path: ["splitShares"],
 					message: "A soma das divisões deve ser igual ao valor total.",
 				});
 			}
@@ -561,11 +574,41 @@ type Share = {
 	amountCents: number;
 };
 
+type SplitShareInput = {
+	payerId: string;
+	amount: number;
+};
+
+const resolveSplitShares = (data: {
+	payerId?: string | null;
+	secondaryPayerId?: string | null;
+	splitShares?: SplitShareInput[];
+	primarySplitAmount?: number;
+	secondarySplitAmount?: number;
+}): SplitShareInput[] => {
+	if (data.splitShares && data.splitShares.length > 0) {
+		return data.splitShares;
+	}
+
+	if (!data.payerId || !data.secondaryPayerId) {
+		return [];
+	}
+
+	return [
+		{ payerId: data.payerId, amount: data.primarySplitAmount ?? 0 },
+		{
+			payerId: data.secondaryPayerId,
+			amount: data.secondarySplitAmount ?? 0,
+		},
+	];
+};
+
 export const buildShares = ({
 	totalCents,
 	payerId,
 	isSplit,
 	secondaryPayerId,
+	splitShares,
 	primarySplitAmountCents,
 	secondarySplitAmountCents,
 }: {
@@ -573,10 +616,18 @@ export const buildShares = ({
 	payerId: string | null;
 	isSplit: boolean;
 	secondaryPayerId?: string;
+	splitShares?: SplitShareInput[];
 	primarySplitAmountCents?: number;
 	secondarySplitAmountCents?: number;
 }): Share[] => {
 	if (isSplit) {
+		if (splitShares && splitShares.length > 0) {
+			return splitShares.map((share) => ({
+				payerId: share.payerId,
+				amountCents: Math.round(share.amount * 100),
+			}));
+		}
+
 		if (!payerId || !secondaryPayerId) {
 			throw new Error("Configuração de divisão inválida para o lançamento.");
 		}

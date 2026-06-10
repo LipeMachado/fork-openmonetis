@@ -11,15 +11,13 @@ import {
 	detachTransactionAttachmentAction,
 	getPresignedUploadUrlAction,
 } from "@/features/transactions/actions/attachments";
-import {
-	filterSecondaryPayerOptions,
-	groupAndSortCategories,
-} from "@/features/transactions/lib/category-helpers";
+import { groupAndSortCategories } from "@/features/transactions/lib/category-helpers";
 import {
 	applyFieldDependencies,
 	buildTransactionInitialState,
 	deriveCreditCardPeriod,
 } from "@/features/transactions/lib/form-helpers";
+import { useAppPreferences } from "@/shared/components/providers/app-preferences-provider";
 import { Button } from "@/shared/components/ui/button";
 import {
 	Collapsible,
@@ -50,6 +48,7 @@ import type {
 	FormState,
 	TransactionDialogProps,
 } from "./transaction-dialog-types";
+import { TransactionSummaryCard } from "./transaction-summary-card";
 
 export function TransactionDialog({
 	mode,
@@ -106,6 +105,7 @@ export function TransactionDialog({
 	const [pendingUploadFiles, setPendingUploadFiles] = useState<File[]>([]);
 	const [extrasOpen, setExtrasOpen] = useState(false);
 	const scrollContainerRef = useRef<HTMLDivElement>(null);
+	const { showTransactionSummary } = useAppPreferences();
 
 	useEffect(() => {
 		if (dialogOpen) {
@@ -165,13 +165,6 @@ export function TransactionDialog({
 		cardOptions,
 		mode,
 	]);
-
-	const primaryPayerId = formState.payerId;
-
-	const secondaryPayerOptions = useMemo(
-		() => filterSecondaryPayerOptions(splitPayerOptions, primaryPayerId),
-		[splitPayerOptions, primaryPayerId],
-	);
 
 	const categoryGroups = useMemo(() => {
 		const filtered = categoryOptions.filter(
@@ -259,14 +252,6 @@ export function TransactionDialog({
 			return;
 		}
 
-		if (formState.isSplit && !formState.secondaryPayerId) {
-			const message =
-				"Selecione a pessoa secundário para dividir o lançamento.";
-			setErrorMessage(message);
-			toast.error(message);
-			return;
-		}
-
 		const amountValue = Number(formState.amount);
 		if (Number.isNaN(amountValue)) {
 			const message = "Informe um valor válido.";
@@ -276,6 +261,44 @@ export function TransactionDialog({
 		}
 
 		const sanitizedAmount = Math.abs(amountValue);
+		const normalizedSplitShares = formState.isSplit
+			? [
+					{
+						payerId: formState.payerId ?? "",
+						amount: Number.parseFloat(formState.primarySplitAmount) || 0,
+					},
+					...formState.splitShares.map((share) => ({
+						payerId: share.payerId,
+						amount: Number.parseFloat(share.amount) || 0,
+					})),
+				]
+			: undefined;
+
+		if (formState.isSplit) {
+			if (formState.splitShares.length === 0) {
+				const message = "Selecione pelo menos uma pessoa para dividir.";
+				setErrorMessage(message);
+				toast.error(message);
+				return;
+			}
+
+			if (normalizedSplitShares?.some((share) => share.amount <= 0)) {
+				const message = "Informe um valor maior que zero para cada pessoa.";
+				setErrorMessage(message);
+				toast.error(message);
+				return;
+			}
+
+			const splitTotal =
+				normalizedSplitShares?.reduce((sum, share) => sum + share.amount, 0) ??
+				0;
+			if (Math.abs(splitTotal - sanitizedAmount) > 0.01) {
+				const message = "A soma das divisões deve ser igual ao valor total.";
+				setErrorMessage(message);
+				toast.error(message);
+				return;
+			}
+		}
 
 		if (!formState.categoryId) {
 			const message = "Selecione uma categoria.";
@@ -309,9 +332,7 @@ export function TransactionDialog({
 			paymentMethod:
 				formState.paymentMethod as CreateTransactionInput["paymentMethod"],
 			payerId: formState.payerId ?? null,
-			secondaryPayerId: formState.isSplit
-				? formState.secondaryPayerId
-				: undefined,
+			splitShares: normalizedSplitShares,
 			isSplit: formState.isSplit,
 			primarySplitAmount: formState.isSplit
 				? Number.parseFloat(formState.primarySplitAmount) || undefined
@@ -598,7 +619,7 @@ export function TransactionDialog({
 							formState={formState}
 							onFieldChange={handleFieldChange}
 							payerOptions={payerOptions}
-							secondaryPayerOptions={secondaryPayerOptions}
+							splitPayerOptions={splitPayerOptions}
 							totalAmount={totalAmount}
 						/>
 
@@ -671,7 +692,10 @@ export function TransactionDialog({
 								className="min-w-0"
 							>
 								<CollapsibleTrigger className="flex w-full items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer [&[data-state=open]>svg]:rotate-180 mt-4">
-									<RiArrowDropDownLine className="text-primary size-4 transition-transform duration-200" />
+									<RiArrowDropDownLine
+										className="text-primary size-4 transition-transform duration-200"
+										aria-hidden
+									/>
 									Condições, anotações e anexos
 								</CollapsibleTrigger>
 								<CollapsibleContent className="min-w-0 overflow-hidden space-y-3 pt-3">
@@ -707,6 +731,18 @@ export function TransactionDialog({
 								</CollapsibleContent>
 							</Collapsible>
 						)}
+
+						{showTransactionSummary ? (
+							<div className="mt-3">
+								<TransactionSummaryCard
+									formState={formState}
+									payerOptions={payerOptions}
+									accountOptions={accountOptions}
+									cardOptions={cardOptions}
+									categoryOptions={categoryOptions}
+								/>
+							</div>
+						) : null}
 					</div>
 
 					{errorMessage ? (

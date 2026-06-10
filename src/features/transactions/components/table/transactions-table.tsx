@@ -47,6 +47,7 @@ import type {
 import { TransactionsBulkBar } from "./transactions-bulk-bar";
 import { getTransactionColumns } from "./transactions-columns";
 import { TransactionsFilters } from "./transactions-filters";
+import { TransactionsMobileList } from "./transactions-mobile-list";
 import { TransactionsPagination } from "./transactions-pagination";
 
 type TransactionsTableProps = {
@@ -174,7 +175,10 @@ export function TransactionsTable({
 			: getPaginationRowModel(),
 		manualPagination: isServerPaginated,
 		pageCount: serverPagination?.totalPages,
-		enableRowSelection: (row) => !row.original.readonly,
+		enableRowSelection: (row) =>
+			row.original.userId === currentUserId
+				? !row.original.readonly
+				: Boolean(onBulkImport),
 	});
 
 	const rowModel = table.getRowModel();
@@ -183,8 +187,18 @@ export function TransactionsTable({
 		? (serverPagination?.totalItems ?? 0)
 		: table.getCoreRowModel().rows.length;
 	const selectedRows = table.getFilteredSelectedRowModel().rows;
+	const selectedOwnRows = selectedRows.filter(
+		(row) => row.original.userId === currentUserId,
+	);
+	const selectedImportRows = selectedRows.filter(
+		(row) => row.original.userId !== currentUserId,
+	);
 	const selectedCount = selectedRows.length;
 	const selectedTotal = selectedRows.reduce(
+		(total, row) => total + (row.original.amount ?? 0),
+		0,
+	);
+	const selectedImportTotal = selectedImportRows.reduce(
 		(total, row) => total + (row.original.amount ?? 0),
 		0,
 	);
@@ -210,8 +224,8 @@ export function TransactionsTable({
 	};
 
 	const handleBulkImport = () => {
-		if (onBulkImport && selectedCount > 0) {
-			onBulkImport(selectedRows.map((row) => row.original));
+		if (onBulkImport && selectedImportRows.length > 0) {
+			onBulkImport(selectedImportRows.map((row) => row.original));
 			setRowSelection({});
 		}
 	};
@@ -325,7 +339,7 @@ export function TransactionsTable({
 
 			{selectedCount > 0 &&
 			onBulkDelete &&
-			selectedRows.every((row) => row.original.userId === currentUserId) ? (
+			selectedOwnRows.length === selectedCount ? (
 				<TransactionsBulkBar
 					selectedCount={selectedCount}
 					selectedTotal={selectedTotal}
@@ -334,12 +348,10 @@ export function TransactionsTable({
 				/>
 			) : null}
 
-			{selectedCount > 0 &&
-			onBulkImport &&
-			selectedRows.some((row) => row.original.userId !== currentUserId) ? (
+			{selectedCount > 0 && onBulkImport && selectedImportRows.length > 0 ? (
 				<TransactionsBulkBar
-					selectedCount={selectedCount}
-					selectedTotal={selectedTotal}
+					selectedCount={selectedImportRows.length}
+					selectedTotal={selectedImportTotal}
 					mode="import"
 					onAction={handleBulkImport}
 				/>
@@ -349,7 +361,23 @@ export function TransactionsTable({
 				<CardContent className="px-2 py-4 sm:px-4">
 					{hasRows ? (
 						<>
-							<div className="overflow-x-auto">
+							<TransactionsMobileList
+								data={rowModel.rows.map((row) => row.original)}
+								currentUserId={currentUserId}
+								onEdit={onEdit}
+								onCopy={onCopy}
+								onImport={onImport}
+								onConfirmDelete={onConfirmDelete}
+								onViewDetails={onViewDetails}
+								onRefund={onRefund}
+								onToggleSettlement={onToggleSettlement}
+								onAnticipate={onAnticipate}
+								onViewAnticipationHistory={onViewAnticipationHistory}
+								isSettlementLoading={isSettlementLoading ?? (() => false)}
+								showActions={showActions}
+							/>
+
+							<div className="hidden overflow-x-auto md:block">
 								<Table>
 									<TableHeader>
 										{table.getHeaderGroups().map((headerGroup) => (

@@ -118,6 +118,9 @@ export type SlugMaps = {
 type FilterOption = {
 	slug: string;
 	label: string;
+	icon?: string | null;
+	avatarUrl?: string | null;
+	type?: string | null;
 };
 
 type AccountCardFilterOption = FilterOption & {
@@ -147,10 +150,7 @@ export const getSingleParam = (
 	return Array.isArray(value) ? (value[0] ?? null) : value;
 };
 
-export const getMultiParam = (
-	params: ResolvedSearchParams,
-	key: string,
-): string[] => {
+const getMultiParam = (params: ResolvedSearchParams, key: string): string[] => {
 	const value = params?.[key];
 	if (!value) {
 		return [];
@@ -686,7 +686,12 @@ export const buildOptionSets = ({
 	);
 
 	const categoryFilterOptions = sortByLabel(
-		categoryFiltersRaw.map(({ slug, label, icon }) => ({ slug, label, icon })),
+		categoryFiltersRaw.map(({ slug, label, type, icon }) => ({
+			slug,
+			label,
+			type,
+			icon,
+		})),
 	);
 
 	const accountCardFilterOptions = sortByLabel(
