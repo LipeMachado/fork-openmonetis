@@ -591,7 +591,7 @@ openmonetis/
 ├── scripts/                       # Scripts utilitários (migrations, dev)
 ├── Dockerfile                     # Multi-stage build (~200MB, non-root)
 ├── docker-compose.yml             # Orquestração app + PostgreSQL
-└── proxy.ts                       # Middleware (auth + multi-domínio)
+└── middleware.ts                   # Middleware (auth + multi-domínio)
 ```
 
 ### Estrutura interna de uma feature

@@ -352,7 +352,7 @@ Toda rota protegida em `src/app/api/` requer `getUser()` ou `getOptionalUserSess
 Usar Drizzle ORM (parametrizado por padrao) — nunca concatenar input de usuario em SQL. Validar todo input com Zod antes de usar. Upload de arquivos: usar whitelist de MIME types (`ALLOWED_MIME_TYPES`), presigned URLs para S3, token de upload assinado com verificacao pos-upload. Nunca usar `dangerouslySetInnerHTML` com conteudo de usuario.
 
 ### Headers & CSP
-CSP definida em `src/proxy.ts` via middleware — alterar la, nao em `next.config.ts`. Headers de seguranca (HSTS, X-Frame-Options, etc.) definidos em `next.config.ts`. Nao remover nem enfraquecer essas configuracoes.
+CSP definida em `src/middleware.ts` — alterar la, nao em `next.config.ts`. Headers de seguranca (HSTS, X-Frame-Options, etc.) definidos em `next.config.ts`. Nao remover nem enfraquecer essas configuracoes.
 
 ### Rate Limiting
 Login: 5 tentativas/min. Signup: 3 tentativas/min. API tokens: 100 req/min (inbox), 20 req/min (batch). Configurado em `src/shared/lib/auth/config.ts` e nas rotas de inbox. Nao remover.
