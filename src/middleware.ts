@@ -1,6 +1,24 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { auth } from "@/shared/lib/auth/config";
 import { isSignupDisabled } from "@/shared/lib/auth/signup";
+
+function getSessionTokenFromCookie(request: NextRequest): string | null {
+	const cookies = request.headers.get("cookie");
+	if (!cookies) return null;
+
+	// Better Auth session cookie names
+	const patterns = [
+		"__Secure-better-auth.session_token",
+		"better-auth.session_token",
+	];
+
+	for (const name of patterns) {
+		const regex = new RegExp(`(?:^|;)\\s*${name}=([^;]+)`);
+		const match = cookies.match(regex);
+		if (match) return match[1];
+	}
+
+	return null;
+}
 
 // Rotas protegidas que requerem autenticação
 const PROTECTED_ROUTES = [
@@ -80,12 +98,9 @@ export default async function proxy(request: NextRequest) {
 		return NextResponse.next();
 	}
 
-	// Validate actual session, not just cookie existence
-	const session = await auth.api.getSession({
-		headers: request.headers,
-	});
-
-	const isAuthenticated = !!session?.user;
+	// Check session cookie existence (lightweight edge check)
+	// Actual session validation happens in page-level getUserSession()
+	const isAuthenticated = !!getSessionTokenFromCookie(request);
 	const signupDisabled = isSignupDisabled();
 
 	if (signupDisabled) {
