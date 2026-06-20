@@ -189,25 +189,7 @@ export function LoginForm({
 							/>
 						</Field>
 
-						<div className="flex items-start gap-3">
-							<Checkbox
-								id="remember-me"
-								checked={rememberMe}
-								onCheckedChange={(checked) => setRememberMe(checked === true)}
-								disabled={loadingEmail || loadingGoogle || loadingPasskey}
-								className="mt-0.5"
-							/>
-							<div className="grid gap-1">
-								<FieldLabel
-									htmlFor="remember-me"
-									className="cursor-pointer font-medium"
-								>
-									Manter conectado neste dispositivo
-								</FieldLabel>
-							</div>
-						</div>
-
-						<Field>
+<Field>
 							<div className="flex items-center gap-2">
 								<Checkbox
 									id="remember-me"
