@@ -484,7 +484,10 @@ export async function convertTransactionToInstallmentAction(
 		const data = convertToInstallmentSchema.parse(input);
 
 		const existing = await db.query.transactions.findFirst({
-			where: and(eq(transactions.id, data.id), eq(transactions.userId, user.id)),
+			where: and(
+				eq(transactions.id, data.id),
+				eq(transactions.userId, user.id),
+			),
 		});
 
 		if (!existing) {
@@ -512,37 +515,32 @@ export async function convertTransactionToInstallmentAction(
 		) {
 			return {
 				success: false,
-				error: "Apenas lançamentos à vista de cartão de crédito podem ser convertidos.",
+				error:
+					"Apenas lançamentos à vista de cartão de crédito podem ser convertidos.",
 			};
 		}
 
 		if (existing.splitGroupId || existing.isDivided) {
 			return {
 				success: false,
-				error: "Lançamentos divididos ainda não podem ser convertidos em parcelamento.",
+				error:
+					"Lançamentos divididos ainda não podem ser convertidos em parcelamento.",
 			};
 		}
 
 		const detected = detectInstallmentFromName(existing.name);
-		if (!detected) {
-			return {
-				success: false,
-				error:
-					"Não encontrei um padrão de parcela no nome deste lançamento, como 2/10 ou Parcela 2 de 10.",
-			};
-		}
-
-		const amountSign: 1 | -1 =
-			existing.transactionType === "Despesa" ? -1 : 1;
-		const totalCents =
-			Math.round(Math.abs(Number(existing.amount)) * 100) *
-			detected.installmentCount;
+		const transactionName =
+			detected?.installmentCount === data.installmentCount
+				? detected.name
+				: existing.name;
+		const amountSign: 1 | -1 = existing.transactionType === "Despesa" ? -1 : 1;
+		const totalCents = Math.round(Math.abs(Number(existing.amount)) * 100);
 		const seriesId = randomUUID();
 		const records = buildTransactionRecords({
 			data: {
 				purchaseDate: existing.purchaseDate.toISOString().slice(0, 10),
 				period: existing.period,
-				name: detected.name,
+				name: transactionName,
 				transactionType: existing.transactionType as "Receita" | "Despesa",
 				amount: totalCents / 100,
 				condition: "Parcelado",
@@ -553,8 +551,8 @@ export async function convertTransactionToInstallmentAction(
 				cardId: existing.cardId,
 				categoryId: existing.categoryId,
 				note: existing.note,
-				installmentCount: detected.installmentCount,
-				startInstallment: detected.currentInstallment,
+				installmentCount: data.installmentCount,
+				startInstallment: 1,
 				dueDate: existing.dueDate?.toISOString().slice(0, 10),
 				isSettled: null,
 			},
@@ -600,7 +598,10 @@ export async function convertTransactionToInstallmentAction(
 			const limitCheck = await validateCardLimit({
 				userId: user.id,
 				cardId: existing.cardId,
-				addAmount: records.reduce((acc, row) => acc + Math.abs(Number(row.amount)), 0),
+				addAmount: records.reduce(
+					(acc, row) => acc + Math.abs(Number(row.amount)),
+					0,
+				),
 				excludeTransactionIds: [existing.id],
 			});
 
@@ -625,7 +626,10 @@ export async function convertTransactionToInstallmentAction(
 					seriesId,
 				})
 				.where(
-					and(eq(transactions.id, existing.id), eq(transactions.userId, user.id)),
+					and(
+						eq(transactions.id, existing.id),
+						eq(transactions.userId, user.id),
+					),
 				);
 
 			if (rowsToInsert.length > 0) {
@@ -637,7 +641,7 @@ export async function convertTransactionToInstallmentAction(
 
 		return {
 			success: true,
-			message: `Lançamento convertido em ${detected.installmentCount} parcelas.`,
+			message: `Lançamento convertido em ${data.installmentCount} parcelas.`,
 			data: { createdCount: rowsToInsert.length },
 		};
 	} catch (error) {
@@ -653,7 +657,10 @@ export async function convertTransactionToRecurringAction(
 		const data = convertToRecurringSchema.parse(input);
 
 		const existing = await db.query.transactions.findFirst({
-			where: and(eq(transactions.id, data.id), eq(transactions.userId, user.id)),
+			where: and(
+				eq(transactions.id, data.id),
+				eq(transactions.userId, user.id),
+			),
 		});
 
 		if (!existing) {
@@ -677,19 +684,20 @@ export async function convertTransactionToRecurringAction(
 		if (existing.condition !== "À vista") {
 			return {
 				success: false,
-				error: "Apenas lançamentos à vista podem ser convertidos em recorrência.",
+				error:
+					"Apenas lançamentos à vista podem ser convertidos em recorrência.",
 			};
 		}
 
 		if (existing.splitGroupId || existing.isDivided) {
 			return {
 				success: false,
-				error: "Lançamentos divididos ainda não podem ser convertidos em recorrência.",
+				error:
+					"Lançamentos divididos ainda não podem ser convertidos em recorrência.",
 			};
 		}
 
-		const amountSign: 1 | -1 =
-			existing.transactionType === "Despesa" ? -1 : 1;
+		const amountSign: 1 | -1 = existing.transactionType === "Despesa" ? -1 : 1;
 		const totalCents = Math.round(Math.abs(Number(existing.amount)) * 100);
 		const seriesId = randomUUID();
 		const isCreditCard = existing.paymentMethod === "Cartão de crédito";
@@ -760,6 +768,22 @@ export async function convertTransactionToRecurringAction(
 					)} já estão pagas. Desfaça o pagamento antes de converter este lançamento.`,
 				};
 			}
+
+			if (existing.transactionType === "Despesa") {
+				const limitCheck = await validateCardLimit({
+					userId: user.id,
+					cardId: existing.cardId,
+					addAmount: records.reduce(
+						(acc, row) => acc + Math.abs(Number(row.amount)),
+						0,
+					),
+					excludeTransactionIds: [existing.id],
+				});
+
+				if (!limitCheck.ok) {
+					return { success: false, error: limitCheck.error };
+				}
+			}
 		}
 
 		await db.transaction(async (tx: typeof db) => {
@@ -780,7 +804,10 @@ export async function convertTransactionToRecurringAction(
 					seriesId,
 				})
 				.where(
-					and(eq(transactions.id, existing.id), eq(transactions.userId, user.id)),
+					and(
+						eq(transactions.id, existing.id),
+						eq(transactions.userId, user.id),
+					),
 				);
 
 			if (rowsToInsert.length > 0) {

@@ -551,8 +551,12 @@ function buildColumns({
 						onRefund={handleRefund}
 						onAnticipate={handleAnticipate}
 						onViewAnticipationHistory={handleViewAnticipationHistory}
-						onConvertToInstallment={onConvertToInstallment ? handleConvertToInstallment : undefined}
-						onConvertToRecurring={onConvertToRecurring ? handleConvertToRecurring : undefined}
+						onConvertToInstallment={
+							onConvertToInstallment ? handleConvertToInstallment : undefined
+						}
+						onConvertToRecurring={
+							onConvertToRecurring ? handleConvertToRecurring : undefined
+						}
 					/>
 				</div>
 			),

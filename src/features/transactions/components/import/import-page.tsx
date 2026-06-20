@@ -49,6 +49,8 @@ const categoryGroupByTransactionType = {
 	income: "receita",
 } as const;
 
+const normalizeCategoryName = (value: string) => value.trim().toLowerCase();
+
 interface ImportPageProps {
 	payerOptions: SelectOption[];
 	accountOptions: SelectOption[];
@@ -112,8 +114,9 @@ export function ImportPage({
 							categoryMappings[normalizeDescriptionKey(t.description)] ?? null;
 
 						if (t.categoryRaw) {
+							const categoryRaw = normalizeCategoryName(t.categoryRaw);
 							const matchedOption = categoryOptions.find(
-								(opt) => opt.label.toLowerCase() === t.categoryRaw?.toLowerCase()
+								(opt) => normalizeCategoryName(opt.label) === categoryRaw,
 							);
 							if (matchedOption) {
 								mappedCategoryId = matchedOption.value;

@@ -11,6 +11,7 @@ import {
 	RiRefundLine,
 	RiTimeLine,
 } from "@remixicon/react";
+import { CREDIT_CARD_PAYMENT_METHOD } from "@/features/transactions/lib/constants";
 import { Button } from "@/shared/components/ui/button";
 import {
 	DropdownMenu,
@@ -20,8 +21,6 @@ import {
 	DropdownMenuTrigger,
 } from "@/shared/components/ui/dropdown-menu";
 import { REFUND_NOTE_PREFIX } from "@/shared/lib/accounts/constants";
-import { CREDIT_CARD_PAYMENT_METHOD } from "@/features/transactions/lib/constants";
-import { detectInstallmentFromName } from "@/features/transactions/lib/installment-detection";
 import { getConditionIcon } from "@/shared/utils/icons";
 import type { TransactionItem } from "../types";
 
@@ -66,7 +65,6 @@ export function TransactionActionsMenu({
 	const showInstallmentActions =
 		isOwnData && item.condition === "Parcelado" && item.seriesId;
 
-	const detectedInstallment = detectInstallmentFromName(item.name);
 	const canConvertToInstallment =
 		isOwnData &&
 		item.paymentMethod === CREDIT_CARD_PAYMENT_METHOD &&
@@ -74,7 +72,6 @@ export function TransactionActionsMenu({
 		!item.splitGroupId &&
 		!item.isDivided &&
 		!item.readonly &&
-		Boolean(detectedInstallment) &&
 		Boolean(onConvertToInstallment);
 
 	const canConvertToRecurring =
@@ -140,18 +137,14 @@ export function TransactionActionsMenu({
 				) : null}
 
 				{canConvertToInstallment ? (
-					<DropdownMenuItem
-						onSelect={() => onConvertToInstallment?.(item)}
-					>
+					<DropdownMenuItem onSelect={() => onConvertToInstallment?.(item)}>
 						{getConditionIcon("Parcelado")}
 						Converter em Parcelamento
 					</DropdownMenuItem>
 				) : null}
 
 				{canConvertToRecurring ? (
-					<DropdownMenuItem
-						onSelect={() => onConvertToRecurring?.(item)}
-					>
+					<DropdownMenuItem onSelect={() => onConvertToRecurring?.(item)}>
 						{getConditionIcon("Recorrente")}
 						Converter em Recorrente
 					</DropdownMenuItem>

@@ -515,6 +515,11 @@ export const toggleSettlementSchema = z.object({
 
 export const convertToInstallmentSchema = z.object({
 	id: uuidSchema("Lançamento"),
+	installmentCount: z.coerce
+		.number({ message: "Informe em quantas parcelas dividir." })
+		.int()
+		.min(2, "O parcelamento deve ter ao menos duas parcelas.")
+		.max(60, "Selecione até 60 parcelas."),
 });
 
 export const convertToRecurringSchema = z.object({

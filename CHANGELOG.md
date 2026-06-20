@@ -5,6 +5,28 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.7.7] - 2026-06-20
+
+Esta versão faz ajustes pontuais de leitura nos resumos financeiros e no dashboard, reforçando a identidade visual de cartões e contas e deixando as listas dos widgets mais consistentes sem alterar a estrutura de navegação das páginas.
+
+### Alterado
+- Cartões e contas: os cabeçalhos dos resumos agora destacam melhor o logo, o nome da entidade e o período exibido.
+- Dashboard: as listas dos widgets agora compartilham padrões de altura, espaçamento, alinhamento e truncamento para melhorar a leitura de valores, status e metadados.
+
+## [2.7.6] - 2026-06-20
+
+Esta versão melhora dois fluxos importantes: a importação de planilhas fica mais esperta ao reconhecer categorias já informadas no arquivo, e lançamentos avulsos podem ser reorganizados como parcelamentos ou recorrências sem precisar recriá-los manualmente.
+
+As funcionalidades desta versão foram desenvolvidas originalmente por Yuri Argolo (`yurnasg`) e adaptadas para integração ao projeto principal.
+
+### Adicionado
+- Importação: planilhas XLS/XLSX agora aceitam a coluna `Categoria` no template e tentam mapear automaticamente o valor para uma categoria existente compatível com o tipo do lançamento.
+- Lançamentos: lançamentos à vista agora podem ser convertidos em recorrentes diretamente pelo menu de ações.
+- Lançamentos: lançamentos à vista de cartão de crédito agora podem ser convertidos em uma série parcelada informando o total de parcelas.
+
+### Alterado
+- Lançamentos: conversões para séries respeitam faturas pagas e limite disponível do cartão antes de criar novos movimentos.
+
 ## [2.7.5] - 2026-06-13
 
 Esta versão faz um polimento pontual no dashboard, deixando os widgets mais explicativos, consistentes e confiáveis quando há listas maiores ou informações complementares para revisar.

@@ -33,6 +33,7 @@ import {
 } from "@/shared/components/ui/dialog";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
+import { formatCurrency } from "@/shared/utils/currency";
 import type {
 	TransactionsExportContext,
 	TransactionsPaginationState,
@@ -96,6 +97,9 @@ interface TransactionsPageProps {
 	importCardOptions?: SelectOption[];
 	importCategoryOptions?: SelectOption[];
 }
+
+const pluralize = (count: number, singular: string, plural: string) =>
+	count === 1 ? singular : plural;
 
 export function TransactionsPage({
 	currentUserId,
@@ -206,6 +210,8 @@ export function TransactionsPage({
 	const [convertInstallmentOpen, setConvertInstallmentOpen] = useState(false);
 	const [transactionToConvert, setTransactionToConvert] =
 		useState<TransactionItem | null>(null);
+	const [installmentCount, setInstallmentCount] = useState("2");
+	const [installmentPending, setInstallmentPending] = useState(false);
 	const [convertRecurringOpen, setConvertRecurringOpen] = useState(false);
 	const [transactionToConvertRecurring, setTransactionToConvertRecurring] =
 		useState<TransactionItem | null>(null);
@@ -564,7 +570,9 @@ export function TransactionsPage({
 	};
 
 	const handleConvertToInstallment = (item: TransactionItem) => {
+		const detectedInstallment = detectInstallmentFromName(item.name);
 		setTransactionToConvert(item);
+		setInstallmentCount(String(detectedInstallment?.installmentCount ?? 2));
 		setConvertInstallmentOpen(true);
 	};
 
@@ -573,23 +581,31 @@ export function TransactionsPage({
 			return;
 		}
 
-		const result = await convertTransactionToInstallmentAction({
-			id: transactionToConvert.id,
-		});
-
-		if (!result.success) {
-			toast.error(result.error);
-			throw new Error(result.error);
+		const count = Number(installmentCount);
+		if (!Number.isInteger(count) || count < 2 || count > 60) {
+			toast.error("Informe um parcelamento entre 2 e 60 parcelas.");
+			return;
 		}
 
-		toast.success(result.message);
-		setConvertInstallmentOpen(false);
-		setTransactionToConvert(null);
-	};
+		try {
+			setInstallmentPending(true);
+			const result = await convertTransactionToInstallmentAction({
+				id: transactionToConvert.id,
+				installmentCount: count,
+			});
 
-	const conversionPreview = transactionToConvert
-		? detectInstallmentFromName(transactionToConvert.name)
-		: null;
+			if (!result.success) {
+				toast.error(result.error);
+				return;
+			}
+
+			toast.success(result.message);
+			setConvertInstallmentOpen(false);
+			setTransactionToConvert(null);
+		} finally {
+			setInstallmentPending(false);
+		}
+	};
 
 	const handleConvertToRecurring = (item: TransactionItem) => {
 		setTransactionToConvertRecurring(item);
@@ -627,6 +643,37 @@ export function TransactionsPage({
 			setRecurrencePending(false);
 		}
 	};
+
+	const parsedInstallmentCount = Number(installmentCount);
+	const installmentSummary =
+		transactionToConvert &&
+		Number.isInteger(parsedInstallmentCount) &&
+		parsedInstallmentCount >= 2 &&
+		parsedInstallmentCount <= 60
+			? {
+					total: formatCurrency(Math.abs(transactionToConvert.amount)),
+					installmentValue: formatCurrency(
+						Math.abs(transactionToConvert.amount) / parsedInstallmentCount,
+					),
+					count: parsedInstallmentCount,
+					createdCount: parsedInstallmentCount - 1,
+				}
+			: null;
+
+	const parsedRecurrenceCount = Number(recurrenceCount);
+	const recurringSummary =
+		transactionToConvertRecurring &&
+		Number.isInteger(parsedRecurrenceCount) &&
+		parsedRecurrenceCount >= 2 &&
+		parsedRecurrenceCount <= 60
+			? {
+					amount: formatCurrency(
+						Math.abs(transactionToConvertRecurring.amount),
+					),
+					count: parsedRecurrenceCount,
+					createdCount: parsedRecurrenceCount - 1,
+				}
+			: null;
 
 	const handleAnticipate = (item: TransactionItem) => {
 		setSelectedForAnticipation(item);
@@ -837,7 +884,7 @@ export function TransactionsPage({
 				disabled={!transactionToDelete}
 			/>
 
-			<ConfirmActionDialog
+			<Dialog
 				open={convertInstallmentOpen && !!transactionToConvert}
 				onOpenChange={(open) => {
 					setConvertInstallmentOpen(open);
@@ -845,17 +892,64 @@ export function TransactionsPage({
 						setTransactionToConvert(null);
 					}
 				}}
-				title="Converter em parcelamento?"
-				description={
-					conversionPreview
-						? `Este lançamento será convertido para "${conversionPreview.name}" como parcela ${conversionPreview.currentInstallment} de ${conversionPreview.installmentCount}. As próximas parcelas serão criadas automaticamente.`
-						: "Este lançamento será convertido em uma série parcelada."
-				}
-				confirmLabel="Converter"
-				pendingLabel="Convertendo..."
-				onConfirm={confirmConvertToInstallment}
-				disabled={!transactionToConvert}
-			/>
+			>
+				<DialogContent className="sm:max-w-md">
+					<DialogHeader>
+						<DialogTitle>Converter em parcelamento?</DialogTitle>
+						<DialogDescription>
+							O lançamento atual será mantido como a primeira parcela e os
+							próximos meses serão criados automaticamente.
+						</DialogDescription>
+					</DialogHeader>
+
+					<div className="space-y-2">
+						<Label htmlFor="installmentCount">Parcelar em</Label>
+						<Input
+							id="installmentCount"
+							type="number"
+							min={2}
+							max={60}
+							value={installmentCount}
+							onChange={(event) => setInstallmentCount(event.target.value)}
+						/>
+						<p className="text-muted-foreground text-sm">
+							Use o total de parcelas da série, incluindo este lançamento.
+						</p>
+						{installmentSummary ? (
+							<p className="rounded-md border bg-muted/40 px-3 py-2 text-muted-foreground text-sm">
+								Resumo: {installmentSummary.total} será dividido em{" "}
+								{installmentSummary.count} parcelas de aproximadamente{" "}
+								{installmentSummary.installmentValue}. Este lançamento vira a
+								primeira parcela e {installmentSummary.createdCount}{" "}
+								{pluralize(
+									installmentSummary.createdCount,
+									"nova parcela será criada",
+									"novas parcelas serão criadas",
+								)}
+								.
+							</p>
+						) : null}
+					</div>
+
+					<DialogFooter>
+						<Button
+							type="button"
+							variant="outline"
+							onClick={() => setConvertInstallmentOpen(false)}
+							disabled={installmentPending}
+						>
+							Cancelar
+						</Button>
+						<Button
+							type="button"
+							onClick={confirmConvertToInstallment}
+							disabled={installmentPending}
+						>
+							{installmentPending ? "Convertendo..." : "Converter"}
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 
 			<Dialog
 				open={convertRecurringOpen && !!transactionToConvertRecurring}
@@ -888,6 +982,18 @@ export function TransactionsPage({
 						<p className="text-muted-foreground text-sm">
 							Use o total de meses da série, incluindo este lançamento.
 						</p>
+						{recurringSummary ? (
+							<p className="rounded-md border bg-muted/40 px-3 py-2 text-muted-foreground text-sm">
+								Resumo: este lançamento vira a primeira recorrência e{" "}
+								{recurringSummary.createdCount}{" "}
+								{pluralize(
+									recurringSummary.createdCount,
+									"novo lançamento mensal será criado",
+									"novos lançamentos mensais serão criados",
+								)}{" "}
+								com valor de {recurringSummary.amount}.
+							</p>
+						) : null}
 					</div>
 
 					<DialogFooter>
